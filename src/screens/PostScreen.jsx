@@ -1,34 +1,27 @@
-import React, { useState, useEffect } from "react";
-
-import { Button, Image, View, Platform } from "react-native";
-
+import React, { useState } from "react";
+import { Button, Image, View, TextInput } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
-import { addDoc, collection } from "firebase/firestore";
-
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db, storage } from "../config/firebase";
-
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 export default function ImagePickerExample() {
   const [image, setImage] = useState(null);
+  const [title, setTitle] = useState("");
 
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
-
       allowsEditing: true,
-
       aspect: [4, 3],
-
       quality: 1,
     });
 
     console.log(result);
 
-    if (!result.canceled) {
+    if (!result.cancelled) {
       setImage(result.assets[0].uri);
     }
   };
@@ -36,13 +29,11 @@ export default function ImagePickerExample() {
   const uploadImage = async () => {
     try {
       const response = await fetch(image);
-
       const blob = await response.blob();
 
       // Upload the blob to Firebase Storage
 
       const storageRef = ref(storage, "images/" + Date.now()); // Update the path as needed
-
       const uploadTask = uploadBytes(storageRef, blob);
 
       // Wait for the upload to complete
@@ -53,26 +44,37 @@ export default function ImagePickerExample() {
 
       const imageURL = await getDownloadURL(storageRef);
 
-      addImageToFirestore(imageURL);
+      addPostToFirestore(imageURL);
     } catch (error) {
       console.error("Error uploading image: ", error);
     }
   };
 
-  const addImageToFirestore = async (imageURL) => {
+  const addPostToFirestore = async (imageURL) => {
     try {
-      const ref = collection(db, "images");
+      const postRef = collection(db, "posts");
 
-      await addDoc(ref, { imageURL }); // Store the image URL in Firestore
+      await addDoc(postRef, {
+        title,
+        imageURL,
+        timestamp: serverTimestamp(),
+      }); // Store the post data in Firestore
 
-      console.log("Image URL added to Firestore");
+      setImage(null);
+      setTitle("");
+      console.log("Post added to Firestore");
     } catch (error) {
-      console.error("Error adding image URL to Firestore: ", error);
+      console.error("Error adding post to Firestore: ", error);
     }
   };
 
   return (
     <View>
+      <TextInput
+        placeholder="Enter post title"
+        value={title}
+        onChangeText={setTitle}
+      />
       <Button title="Pick an image from camera roll" onPress={pickImage} />
 
       {image && (
